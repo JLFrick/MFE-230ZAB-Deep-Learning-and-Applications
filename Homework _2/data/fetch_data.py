@@ -2,7 +2,7 @@ import yfinance as yf
 import pandas as pd
 from typing import List
 
-def fetch_data(tickers: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+def fetch_data(tickers: List[str], start_date: str, end_date: str, interval: str = "1wk") -> pd.DataFrame:
     """
     Fetches historical stock data for the given tickers from Yahoo Finance.
     
@@ -14,4 +14,4 @@ def fetch_data(tickers: List[str], start_date: str, end_date: str) -> pd.DataFra
     Returns:
     DataFrame: Adjusted close prices for the tickers.
     """
-    return yf.download(tickers, start=start_date, end=end_date)['Adj Close']
+    return yf.download(tickers, start=start_date, end=end_date, interval=interval)['Adj Close']
