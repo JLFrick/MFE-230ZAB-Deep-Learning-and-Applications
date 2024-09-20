@@ -21,6 +21,8 @@ env/
 __pycache__/
 
 # Data
-zb_pset/data/sp500.pkl
 zb_pset/data/statement_PDFs
 zb_pset/data/fomc statement times pre 2011 with urls.csv
+zb_pset/data/pdf_fomcs.csv
+zb_pset/data/all_fomcs_urls.csv
+zb_pset/data/all_fomc_urls.csv
