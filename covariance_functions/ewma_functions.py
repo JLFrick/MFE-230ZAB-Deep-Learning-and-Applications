@@ -288,3 +288,41 @@ def _general(
             )
 
         yield f(k=n)
+
+
+# Vectorized iterated EWMA Functions
+
+def ewma(y, halflife, clip_at=None, min_periods=None):
+    """
+    param y: array with measurements for times t=1,2,...,T=len(y)
+    halflife: EWMA half life
+    param clip_at: clip y_last at  +- clip_at*EWMA (optional)
+
+    returns: list of EWMAs for times t=2,3,...,T+1 = len(y)
+
+
+    Note: We define EWMA_t as a function of the
+    observations up to time t-1. This means that
+    y = [y_1,y_2,...,y_T] (for some T), while
+    EWMA = [EWMA_2, EWMA_3, ..., EWMA_{T+1}]
+    This way we don't get a "look-ahead bias" in the EWMA
+    """
+
+    beta = np.exp(-np.log(2) / halflife)
+    # EWMAs = np.zeros_like(y)
+    # EWMAs[0] = y[0]
+
+    EWMA_old = list(y.values())[0]
+    for t, time in enumerate(y.keys()):
+        if t == 0:
+            continue
+        # for t in range(1, y.shape[0]):  # First EWMA is for t=2
+        # y_last = y[t-1] # Note zero-indexing
+        # EWMA_t = get_next_ewma(EWMA_t, y_last, t, beta, clip_at, min_periods)
+        EWMA_old = get_next_ewma(EWMA_old, y[time], t + 1, beta, clip_at, min_periods)
+
+        yield time, EWMA_old
+
+        # EWMAs[t] = get_next_ewma(EWMAs[t - 1], y[t], t + 1, beta, clip_at, min_periods)
+
+        # EWMAs.append(EWMA_t)

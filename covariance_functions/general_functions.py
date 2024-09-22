@@ -51,6 +51,21 @@ def add_to_diagonal(Sigmas, lamda):
 
     return Sigmas
 
+def from_row_to_covariance(row, n):
+    """
+    Convert upper diagonal part of covariance matrix to a covariance matrix
+    """
+    Sigma = np.zeros((n, n))
+
+    # set upper triangular part
+    upper_mask = np.triu(np.ones((n, n)), k=0).astype(bool)
+    Sigma[upper_mask] = row
+
+    # set lower triangular part
+    lower_mask = np.tril(np.ones((n, n)), k=0).astype(bool)
+    Sigma[lower_mask] = Sigma.T[lower_mask]
+    return Sigma
+
 def from_row_matrix_to_covariance(M, n):
     """
     Convert Tx(n(n+1)/2) matrix of upper diagonal parts of covariance matrices to a Txnxn matrix of covariance matrices
