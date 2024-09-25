@@ -123,7 +123,7 @@ class Trader:
         return w_normalized
 
     def solve_mean_variance(
-        self, prob, w, L_inv_param, r_hat_param, L_inv, r_hat, rho_param, rho
+        self, prob, w, L_inv_param, r_hat_param, L_inv, r_hat, rho_param=None, rho=None
     ):
         """
         Solves the mean variance problem.
@@ -429,16 +429,13 @@ class Trader:
                     r_hat_t = r_hat_values[t]
                     L_inv_param.value = L_inv_t
                     r_hat_param.value = np.vstack([r_hat_t.reshape(-1, 1), 0])
-                    print(self.rhos)
                     if self.rhos is not None:
-                        print('Hello')
                         rho_t = rho_values[t]
                         rho_param.value = rho_t.reshape(-1, 1)
                         w_value, obj_value = self.solve_mean_variance(
                             prob, w, L_inv_param, r_hat_param, L_inv_t, r_hat_t, rho_param, rho_t
                         )
                     else:
-                        print('Hi')
                         w_value, obj_value = self.solve_mean_variance(
                             prob, w, L_inv_param, r_hat_param, L_inv_t, r_hat_t
                         )
