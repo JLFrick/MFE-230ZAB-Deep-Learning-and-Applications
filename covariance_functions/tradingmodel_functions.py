@@ -123,7 +123,7 @@ class Trader:
         return w_normalized
 
     def solve_mean_variance(
-        self, prob, w, L_inv_param, r_hat_param, L_inv, r_hat, rho_param, rho
+        self, prob, w, L_inv_param, r_hat_param, L_inv, r_hat, rho_param=None, rho=None
     ):
         """
         Solves the mean variance problem.
@@ -244,332 +244,298 @@ class Trader:
         self.Vs_adjusted = np.array(Vs[1:])
 
     def backtest(
-        self,
-        portfolio_type="min_risk",
-        cons=[],
-        sigma_des=None,
-        adjust_factor=1,
-        additonal_cons={"short_lim": 1.6, "upper_bound": 0.15, "lower_bound": -0.1},
-        C_speedup=False,
-        kappa=None,
-        rhos=None,
-    ):
-        """
-        param portfolio_type: type of portfolio to backtest. Options are "min_risk", "vol_cont", "risk_parity", "mean_variance".
-        param cons: list of constraints to impose on the optimization problem.
-        param rhos: pandas DataFrame of uncertainty in expected returns
-            if None, then uncertainty is set to zero. Causal estimates
-        """
-        self.portfolio_type = portfolio_type
-        self.adjust_factor = adjust_factor
-        self.additonal_cons = additonal_cons
-        self.C_speedup = C_speedup
-
-        # TODO: ugly to have this here
-        if rhos is not None:
-            self.rhos = rhos.loc[self.returns.index]
-        else:
-            self.rhos = rhos
-
-        if portfolio_type == "eq_weighted":
-            ws = np.ones((self.T, self.n)) / self.n
-
-        if (
-            portfolio_type == "min_risk"
-            or portfolio_type == "vol_cont"
-            or portfolio_type == "robust_min_risk"
+            self,
+            portfolio_type="min_risk",
+            cons=[],
+            sigma_des=None,
+            adjust_factor=1,
+            additonal_cons={"short_lim": 1.6, "upper_bound": 0.15, "lower_bound": -0.1},
+            C_speedup=False,
+            kappa=None,
+            rhos=None,
         ):
-            # get the minimum risk portfolio
-            w = cp.Variable((self.n, 1))
-            L_inv_param = cp.Parameter((self.n, self.n))
-            # risk = cp.norm(L_inv_param @ w, 2)
+            """
+            param portfolio_type: type of portfolio to backtest. Options are "min_risk", "vol_cont", "risk_parity", "mean_variance".
+            param cons: list of constraints to impose on the optimization problem.
+            param rhos: pandas DataFrame of uncertainty in expected returns
+                if None, then uncertainty is set to zero. Causal estimates
+            """
+            self.portfolio_type = portfolio_type
+            self.adjust_factor = adjust_factor
+            self.additonal_cons = additonal_cons
+            self.C_speedup = C_speedup
 
-            if portfolio_type == "robust_min_risk":
-                assert kappa != None
-                sigma_hat_param = cp.Parameter((self.n, 1), nonneg=True)
-                risk = cp.norm2(
-                    cp.sum(cp.multiply(L_inv_param, w.T), axis=1)
-                ) + kappa * cp.square(sigma_hat_param.T @ cp.abs(w))
+            # TODO: ugly to have this here
+            if rhos is not None:
+                self.rhos = rhos.loc[self.returns.index]
             else:
-                risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w.T), axis=1))
+                self.rhos = rhos
 
-            if self.C_speedup and portfolio_type != "robust_min_risk":
-                print(
-                    "Using prespecified CVXPYgen formulation... Ignoring new constraints"
-                )
-                n = 49
-                w = cp.Variable((n, 1), name="w")
-                L_inv_param = cp.Parameter((n, n), name="L_inv_param")
-                # risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w.T), axis=1))
-                risk = cp.norm(L_inv_param @ w, 2)
-                ones = np.ones((n, 1))
-                cons = [ones.T @ w <= 1, ones.T @ w >= 1]
-                additonal_cons = {
-                    "short_lim": 1.6,
-                    "upper_bound": 0.15,
-                    "lower_bound": -0.1,
-                }
-                if [*additonal_cons.keys()]:
-                    if "short_lim" in additonal_cons.keys():
-                        cons += [cp.norm(w, 1) <= additonal_cons["short_lim"]]
-                    if "upper_bound" in additonal_cons.keys():
-                        cons += [w <= additonal_cons["upper_bound"]]
-                    if "lower_bound" in additonal_cons.keys():
-                        cons += [w >= additonal_cons["lower_bound"]]
+            if portfolio_type == "eq_weighted":
+                ws = np.ones((self.T, self.n)) / self.n
 
-                prob = cp.Problem(cp.Minimize(risk), cons)
-                prob.register_solve("cpg", cpg_solve)
-            else:
+            if (
+                portfolio_type == "min_risk"
+                or portfolio_type == "vol_cont"
+                or portfolio_type == "robust_min_risk"
+            ):
+                # get the minimum risk portfolio
+                w = cp.Variable((self.n, 1))
+                L_inv_param = cp.Parameter((self.n, self.n))
+                # risk = cp.norm(L_inv_param @ w, 2)
+
+                if portfolio_type == "robust_min_risk":
+                    assert kappa != None
+                    sigma_hat_param = cp.Parameter((self.n, 1), nonneg=True)
+                    risk = cp.norm2(
+                        cp.sum(cp.multiply(L_inv_param, w.T), axis=1)
+                    ) + kappa * cp.square(sigma_hat_param.T @ cp.abs(w))
+                else:
+                    risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w.T), axis=1))
+
+                if self.C_speedup and portfolio_type != "robust_min_risk":
+                    print(
+                        "Using prespecified CVXPYgen formulation... Ignoring new constraints"
+                    )
+                    n = 49
+                    w = cp.Variable((n, 1), name="w")
+                    L_inv_param = cp.Parameter((n, n), name="L_inv_param")
+                    # risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w.T), axis=1))
+                    risk = cp.norm(L_inv_param @ w, 2)
+                    ones = np.ones((n, 1))
+                    cons = [ones.T @ w <= 1, ones.T @ w >= 1]
+                    additonal_cons = {
+                        "short_lim": 1.6,
+                        "upper_bound": 0.15,
+                        "lower_bound": -0.1,
+                    }
+                    if [*additonal_cons.keys()]:
+                        if "short_lim" in additonal_cons.keys():
+                            cons += [cp.norm(w, 1) <= additonal_cons["short_lim"]]
+                        if "upper_bound" in additonal_cons.keys():
+                            cons += [w <= additonal_cons["upper_bound"]]
+                        if "lower_bound" in additonal_cons.keys():
+                            cons += [w >= additonal_cons["lower_bound"]]
+
+                    prob = cp.Problem(cp.Minimize(risk), cons)
+                    prob.register_solve("cpg", cpg_solve)
+                else:
+                    # add constraints
+                    cons += [cp.sum(w) == 1]
+                    if [*additonal_cons.keys()]:
+                        # print("Adding additional constraints")
+                        if "short_lim" in additonal_cons.keys():
+                            cons += [cp.norm(w, 1) <= additonal_cons["short_lim"]]
+                        if "upper_bound" in additonal_cons.keys():
+                            cons += [w <= additonal_cons["upper_bound"]]
+                        if "lower_bound" in additonal_cons.keys():
+                            cons += [w >= additonal_cons["lower_bound"]]
+                        # cons += [w >= -0.15]
+                        # cons += [w <= 0.3]
+                        # cons += [w >= 0]
+
+                    prob = cp.Problem(cp.Minimize(risk), cons)
+
+                    # if self.portfolio_type == "robust_min_risk":
+                    # TODO: always define this? Not used for min_risk!
+                    all_sigma_hats = [
+                        self.sigma_hats.values[t].reshape(-1, 1) for t in range(self.T)
+                    ]
+
+                    # Solve problem with random inputs once to speed up later solves
+                    L_inv_param.value = [*self.L_inv_hats.values()][0]
+                    if portfolio_type == "robust_min_risk":
+                        sigma_hat_param.value = all_sigma_hats[0]
+                    prob.solve()
+
+                # solve the problem for each date
+                ws = []
+                objs = []
+                L_inv_values = list(self.L_inv_hats.values())
+                for t in range(self.T):
+                    L_inv_t = L_inv_values[t]
+                    if self.portfolio_type == "robust_min_risk":
+                        sigma_hat_t = all_sigma_hats[t]
+                        w_value, obj_value = self.solve_min_risk(
+                            prob, w, L_inv_param, L_inv_t, sigma_hat_param, sigma_hat_t
+                        )
+                    else:
+                        w_value, obj_value = self.solve_min_risk(
+                            prob, w, L_inv_param, L_inv_t
+                        )
+                    ws.append(w_value)
+                    objs.append(obj_value)
+                ws = np.array(ws)
+                obj = np.array(objs)
+                self.obj = np.array(obj)
+
+                if portfolio_type == "vol_cont":
+                    assert sigma_des is not None
+                    self.diluted = True  # Trades cash
+                    ws = self.get_vol_cont_w(ws, obj, sigma_des)
+
+            elif portfolio_type == "mean_variance":
+                assert self.r_hats is not None
+                assert sigma_des is not None
+                sigma_des = sigma_des * self.adjust_factor
+
+                w = cp.Variable((self.n + 1, 1))  # Last asset is cash
+                L_inv_param = cp.Parameter((self.n, self.n))
+                r_hat_param = cp.Parameter((self.n + 1, 1))  # Last asset is cash
+
+                # risk = cp.norm(L_inv_param @ w[:-1], 2)
+                risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w[:-1].T), axis=1))
+
+                if self.rhos is not None:
+                    rho_param = cp.Parameter((self.n, 1), nonneg=True)
+                    ret = r_hat_param.T @ w - rho_param.T @ cp.abs(w[:-1])
+                else:
+                    ret = r_hat_param.T @ w
+
                 # add constraints
                 cons += [cp.sum(w) == 1]
+                cons += [risk <= sigma_des / np.sqrt(252)]
+
                 if [*additonal_cons.keys()]:
-                    # print("Adding additional constraints")
                     if "short_lim" in additonal_cons.keys():
-                        cons += [cp.norm(w, 1) <= additonal_cons["short_lim"]]
+                        cons += [cp.norm(w[:-1], 1) <= additonal_cons["short_lim"]]
                     if "upper_bound" in additonal_cons.keys():
-                        cons += [w <= additonal_cons["upper_bound"]]
+                        cons += [w[:-1] <= additonal_cons["upper_bound"]]
                     if "lower_bound" in additonal_cons.keys():
-                        cons += [w >= additonal_cons["lower_bound"]]
-                    # cons += [w >= -0.15]
-                    # cons += [w <= 0.3]
+                        cons += [w[:-1] >= additonal_cons["lower_bound"]]
                     # cons += [w >= 0]
 
-                prob = cp.Problem(cp.Minimize(risk), cons)
-
-                # if self.portfolio_type == "robust_min_risk":
-                # TODO: always define this? Not used for min_risk!
-                all_sigma_hats = [
-                    self.sigma_hats.values[t].reshape(-1, 1) for t in range(self.T)
-                ]
+                prob = cp.Problem(cp.Maximize(ret), cons)
 
                 # Solve problem with random inputs once to speed up later solves
                 L_inv_param.value = [*self.L_inv_hats.values()][0]
-                if portfolio_type == "robust_min_risk":
-                    sigma_hat_param.value = all_sigma_hats[0]
+                r_hat_param.value = np.vstack([self.r_hats.values[0].reshape(-1, 1), 0])
+
+                if self.rhos is not None:
+                    rho_param.value = self.rhos.values[0].reshape(-1, 1)
+                # prob.solve() TODO: uncomment if using dpp
+
+                # solve the problem for each date
+                ws = []
+                objs = []
+                L_inv_values = list(self.L_inv_hats.values())
+                r_hat_values = self.r_hats.values
+                if self.rhos is not None:
+                    rho_values = self.rhos.values
+                else:
+                    rho_values = [None] * self.T
+                for t in range(self.T):
+                    L_inv_t = L_inv_values[t]
+                    r_hat_t = r_hat_values[t]
+                    L_inv_param.value = L_inv_t
+                    r_hat_param.value = np.vstack([r_hat_t.reshape(-1, 1), 0])
+                    if self.rhos is not None:
+                        rho_t = rho_values[t]
+                        rho_param.value = rho_t.reshape(-1, 1)
+                        w_value, obj_value = self.solve_mean_variance(
+                            prob, w, L_inv_param, r_hat_param, L_inv_t, r_hat_t, rho_param, rho_t
+                        )
+                    else:
+                        w_value, obj_value = self.solve_mean_variance(
+                            prob, w, L_inv_param, r_hat_param, L_inv_t, r_hat_t
+                        )
+                    ws.append(w_value)
+                    objs.append(obj_value)
+                ws = np.array(ws)
+                obj = np.array(objs)
+                self.obj = np.array(obj)
+
+            elif portfolio_type == "max_diverse":
+                L_inv_param = cp.Parameter((self.n, self.n))
+                sigma_param = cp.Parameter((self.n, 1))
+
+                z = cp.Variable((self.n, 1))  # Change of variables solution
+                obj = cp.norm2(cp.sum(cp.multiply(L_inv_param, z.T), axis=1))
+
+                M = additonal_cons["upper_bound"]
+                cons = [z >= 0, z <= M * cp.sum(z), sigma_param.T @ z == 1]
+                prob = cp.Problem(cp.Minimize(obj), cons)
+
+                # Solve problem once to speed up later solves
+                L_inv_param.value = [*self.L_inv_hats.values()][0]
+                sigma_param.value = np.ones((self.n, 1))
+                prob.solve(solver="ECOS")
+
+                ws = []
+                L_inv_values = list(self.L_inv_hats.values())
+                all_sigma_hats = [
+                    self.sigma_hats.values[t].reshape(-1, 1) for t in range(self.T)
+                ]
+                for t in range(self.T):
+                    L_inv_t = L_inv_values[t]
+                    sigma_hat_t = all_sigma_hats[t]
+                    L_inv_param.value = L_inv_t
+                    sigma_param.value = sigma_hat_t
+                    w_value = self.solve_max_diverse(
+                        prob, z, L_inv_param, sigma_param, L_inv_t, sigma_hat_t
+                    )
+                    ws.append(w_value)
+                ws = np.array(ws)
+
+            elif portfolio_type == "risk_parity":
+                w = cp.Variable((self.n, 1))
+                L_inv_param = cp.Parameter((self.n, self.n))
+
+                # risk = cp.norm(L_inv_param @ w, 2)
+                risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w.T), axis=1))
+                prob = cp.Problem(cp.Minimize(1 / 2 * risk - cp.log(cp.geo_mean(w))))
+
+                # Solve once for speedup later
+                # Solve problem with random inputs once to speed up later solves
+                L_inv_param.value = [*self.L_inv_hats.values()][0]
                 prob.solve()
 
-            # solve the problem for each date
-            all_w = [w for _ in range(self.T)]
-            all_L_inv_param = [L_inv_param for _ in range(self.T)]
-            if self.portfolio_type == "robust_min_risk":
-                all_sigma_hat_param = [sigma_hat_param for _ in range(self.T)]
-            else:
-                all_sigma_hat_param = [None for _ in range(self.T)]
-            all_prob = [prob for _ in range(self.T)]
+                ws = []
+                L_inv_values = list(self.L_inv_hats.values())
+                for t in range(self.T):
+                    L_inv_t = L_inv_values[t]
+                    L_inv_param.value = L_inv_t
+                    w_value = self.solve_risk_parity(
+                        prob, w, L_inv_param, L_inv_t
+                    )
+                    ws.append(w_value)
+                ws = np.array(ws)
 
-            pool = mp.Pool()
-            ws_and_obj = pool.starmap(
-                self.solve_min_risk,
-                zip(
-                    all_prob,
-                    all_w,
-                    all_L_inv_param,
-                    [*self.L_inv_hats.values(), all_sigma_hat_param, all_sigma_hats],
-                ),
-            )
-            pool.close()
-            pool.join()
+            elif portfolio_type == "max_sharpe":
+                assert self.r_hats is not None
 
-            # get the weights and objective values
-            ws, obj = zip(*ws_and_obj)
-            ws = np.array(ws)
-            obj = np.array(obj)
-            self.obj = np.array(obj)
+                L_inv_param = cp.Parameter((self.n, self.n))
+                r_hat_param = cp.Parameter((self.n, 1))
 
-            if portfolio_type == "vol_cont":
-                assert sigma_des is not None
-                self.diluted = True  # Trades cash
-                ws = self.get_vol_cont_w(ws, obj, sigma_des)
+                z = cp.Variable((self.n, 1))  # Change of variables solution
+                obj = cp.norm2(cp.sum(cp.multiply(L_inv_param, z.T), axis=1))
 
-        elif portfolio_type == "mean_variance":
-            assert self.r_hats is not None
-            assert sigma_des is not None
-            sigma_des = sigma_des * self.adjust_factor
+                M = additonal_cons["upper_bound"]
+                # cons = [z >= 0, z <= M*cp.sum(z), r_hat_param.T@z == 1]
+                cons = [z >= 0, r_hat_param.T @ z == 1]
 
-            w = cp.Variable((self.n + 1, 1))  # Last asset is cash
-            L_inv_param = cp.Parameter((self.n, self.n))
-            r_hat_param = cp.Parameter((self.n + 1, 1))  # Last asset is cash
+                prob = cp.Problem(cp.Minimize(obj), cons)
 
-            # risk = cp.norm(L_inv_param @ w[:-1], 2)
-            risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w[:-1].T), axis=1))
+                # Solve problem once to speed up later solves
+                L_inv_param.value = [*self.Lt_inv_hats.values()][0].T
+                r_hat_param.value = np.ones((self.n, 1))
+                prob.solve(solver="ECOS")
 
-            if self.rhos is not None:
-                rho_param = cp.Parameter((self.n, 1), nonneg=True)
-                ret = r_hat_param.T @ w - rho_param.T @ cp.abs(w[:-1])
-            else:
-                ret = r_hat_param.T @ w
+                ws = []
+                L_inv_values = list(self.Lt_inv_hats.values())
+                r_hat_values = [self.r_hats.values[t].reshape(-1, 1) for t in range(self.T)]
+                for t in range(self.T):
+                    L_inv_t = L_inv_values[t].T
+                    r_hat_t = r_hat_values[t]
+                    L_inv_param.value = L_inv_t
+                    r_hat_param.value = r_hat_t
+                    w_value = self.solve_max_sharpe(
+                        prob, z, L_inv_param, r_hat_param, L_inv_t, r_hat_t
+                    )
+                    ws.append(w_value)
+                ws = np.array(ws)
 
-            # add constraints
-            cons += [cp.sum(w) == 1]
-            cons += [risk <= sigma_des / np.sqrt(252)]
-
-            if [*additonal_cons.keys()]:
-                if "short_lim" in additonal_cons.keys():
-                    cons += [cp.norm(w[:-1], 1) <= additonal_cons["short_lim"]]
-                if "upper_bound" in additonal_cons.keys():
-                    cons += [w[:-1] <= additonal_cons["upper_bound"]]
-                if "lower_bound" in additonal_cons.keys():
-                    cons += [w[:-1] >= additonal_cons["lower_bound"]]
-                # cons += [w >= 0]
-
-            prob = cp.Problem(cp.Maximize(ret), cons)
-
-            # Solve problem with random inputs once to speed up later solves
-            L_inv_param.value = [*self.L_inv_hats.values()][0]
-            r_hat_param.value = np.vstack([self.r_hats.values[0].reshape(-1, 1), 0])
-
-            if self.rhos is not None:
-                rho_param.value = self.rhos.values[0].reshape(-1, 1)
-            # prob.solve() TODO: uncomment if using dpp
-
-            # solve the problem for each date
-            all_w = [w for _ in range(self.T)]
-            all_L_inv_param = [L_inv_param for _ in range(self.T)]
-            all_r_hat_param = [r_hat_param for _ in range(self.T)]
-            all_prob = [prob for _ in range(self.T)]
-
-            if self.rhos is not None:
-                all_rho_param = [rho_param for _ in range(self.T)]
-                rhos = self.rhos.values
-            else:
-                all_rho_param = [None for _ in range(self.T)]
-                rhos = [None for _ in range(self.T)]
-
-            pool = mp.Pool()
-            ws_and_obj = pool.starmap(
-                self.solve_mean_variance,
-                zip(
-                    all_prob,
-                    all_w,
-                    all_L_inv_param,
-                    all_r_hat_param,
-                    [*self.L_inv_hats.values()],
-                    self.r_hats.values,
-                    all_rho_param,
-                    rhos,
-                ),
-            )
-            pool.close()
-            pool.join()
-
-            # get the weights and objective values
-            ws, obj = zip(*ws_and_obj)
-            ws = np.array(ws)
-            obj = np.array(obj)
-            self.obj = np.array(obj)
-
-        elif portfolio_type == "max_diverse":
-            L_inv_param = cp.Parameter((self.n, self.n))
-            sigma_param = cp.Parameter((self.n, 1))
-
-            z = cp.Variable((self.n, 1))  # Change of variables solution
-            obj = cp.norm2(cp.sum(cp.multiply(L_inv_param, z.T), axis=1))
-
-            M = additonal_cons["upper_bound"]
-            cons = [z >= 0, z <= M * cp.sum(z), sigma_param.T @ z == 1]
-            prob = cp.Problem(cp.Minimize(obj), cons)
-
-            # Solve problem once to speed up later solves
-            L_inv_param.value = [*self.L_inv_hats.values()][0]
-            sigma_param.value = np.ones((self.n, 1))
-            prob.solve(solver="ECOS")
-
-            all_z = [z for _ in range(self.T)]
-            all_L_inv_param = [L_inv_param for _ in range(self.T)]
-            all_sigma_param = [sigma_param for _ in range(self.T)]
-            all_prob = [prob for _ in range(self.T)]
-
-            pool = mp.Pool()
-            all_sigma_hats = [
-                self.sigma_hats.values[t].reshape(-1, 1) for t in range(self.T)
-            ]
-            ws = pool.starmap(
-                self.solve_max_diverse,
-                zip(
-                    all_prob,
-                    all_z,
-                    all_L_inv_param,
-                    all_sigma_param,
-                    [*self.L_inv_hats.values()],
-                    all_sigma_hats,
-                ),
-            )
-            pool.close()
-            pool.join()
-
-            ws = np.array(ws)
-
-        elif portfolio_type == "risk_parity":
-            w = cp.Variable((self.n, 1))
-            L_inv_param = cp.Parameter((self.n, self.n))
-
-            # risk = cp.norm(L_inv_param @ w, 2)
-            risk = cp.norm2(cp.sum(cp.multiply(L_inv_param, w.T), axis=1))
-            prob = cp.Problem(cp.Minimize(1 / 2 * risk - cp.log(cp.geo_mean(w))))
-
-            # Solve once for speedup later
-            # Solve problem with random inputs once to speed up later solves
-            L_inv_param.value = [*self.L_inv_hats.values()][0]
-            prob.solve()
-
-            all_w = [w for _ in range(self.T)]
-            all_L_inv_param = [L_inv_param for _ in range(self.T)]
-            all_prob = [prob for _ in range(self.T)]
-
-            pool = mp.Pool()
-            ws = pool.starmap(
-                self.solve_risk_parity,
-                zip(all_prob, all_w, all_L_inv_param, [*self.L_inv_hats.values()]),
-            )
-            pool.close()
-            pool.join()
-            ws = np.array(ws)
-
-        elif portfolio_type == "max_sharpe":
-            assert self.r_hats is not None
-
-            L_inv_param = cp.Parameter((self.n, self.n))
-            r_hat_param = cp.Parameter((self.n, 1))
-
-            z = cp.Variable((self.n, 1))  # Change of variables solution
-            obj = cp.norm2(cp.sum(cp.multiply(L_inv_param, z.T), axis=1))
-
-            M = additonal_cons["upper_bound"]
-            # cons = [z >= 0, z <= M*cp.sum(z), r_hat_param.T@z == 1]
-            cons = [z >= 0, r_hat_param.T @ z == 1]
-
-            prob = cp.Problem(cp.Minimize(obj), cons)
-
-            # Solve problem once to speed up later solves
-            L_inv_param.value = [*self.Lt_inv_hats.values()][0].T
-            r_hat_param.value = np.ones((self.n, 1))
-            prob.solve(solver="ECOS")
-
-            all_z = [z for _ in range(self.T)]
-            all_L_inv_param = [L_inv_param for _ in range(self.T)]
-            all_r_hat_param = [r_hat_param for _ in range(self.T)]
-            all_prob = [prob for _ in range(self.T)]
-            all_r_hats = [self.r_hats.values[t].reshape(-1, 1) for t in range(self.T)]
-
-            pool = mp.Pool()
-
-            ws = pool.starmap(
-                self.solve_max_sharpe,
-                zip(
-                    all_prob,
-                    all_z,
-                    all_L_inv_param,
-                    all_r_hat_param,
-                    [*self.Lt_inv_hats.values()],
-                    all_r_hats,
-                ),
-            )
-            pool.close()
-            pool.join()
-
-            ws = np.array(ws)
-
-        self.ws = ws.reshape(self.T, -1)
+            self.ws = ws.reshape(self.T, -1)
 
     def get_total_returns(self, diluted_with_cash=False, sigma_des=None, rf=None):
         """
