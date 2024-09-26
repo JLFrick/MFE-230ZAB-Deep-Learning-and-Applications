@@ -31,11 +31,14 @@ def _cholesky_precision(cov):
 
     param cov: dictionary of covariance matrices {time: Sigma}
     """
-    return {
-        time: np.linalg.cholesky(np.linalg.inv(item.values))
-        for time, item in cov.items()
-    }
+    if isinstance(sigma, pd.DataFrame):
+        sigma = sigma.values  # Convert to numpy array if it's a DataFrame
 
+    # Compute the precision matrix (inverse of covariance matrix)
+    precision_matrix = np.linalg.inv(sigma)
+    
+    # Perform Cholesky decomposition on the precision matrix
+    return np.linalg.cholesky(precision_matrix)
 
 def _B_t_col(Ls, nus, returns):
     """
