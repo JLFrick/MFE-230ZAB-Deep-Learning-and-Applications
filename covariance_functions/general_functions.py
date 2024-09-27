@@ -49,12 +49,6 @@ def add_to_diagonal(Sigmas, lamda):
     for key in Sigmas.keys():
         Sigmas[key] = Sigmas[key] + lamda * np.diag(np.diag(Sigmas[key]))
 
-    eigvals, eigvecs = np.linalg.eigh(Sigmas[key])
-
-    eigvals[eigvals < 0] = 1e-5
-
-    Sigmas[key] = eigvecs @ np.diag(eigvals) @ eigvecs.T
-
     return Sigmas
 
 def from_row_to_covariance(row, n):
