@@ -41,13 +41,6 @@ zb_pset/writeup/writeup.synctex.gz
 zb_pset/writeup/writeup.toc
 zb_pset/writeup/writeup.xdv
 
-zb_pset/notes/notes.aux
-zb_pset/notes/notes.bbl
-zb_pset/notes/notes.bcf
-zb_pset/notes/notes.fdb_latexmk
-zb_pset/notes/notes.fls
-zb_pset/notes/notes.log
-zb_pset/notes/notes.out
-zb_pset/notes/notes.run.xml
-zb_pset/notes/notes.synctex.gz
-zb_pset/notes/notes.xdv
+zb_pset/data
+
+zb_pset/.env
