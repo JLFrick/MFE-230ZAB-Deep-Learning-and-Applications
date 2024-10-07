@@ -25,14 +25,14 @@ def MSE(returns, covariances):
     return pd.Series(MSEs, index=covariances.keys())
 
 def log_likelihood(returns, Sigmas, means=None, scale=1):
-    """
+    """    
     Computes the log likelihhod assuming Gaussian returns with covariance matrix
     Sigmas and mean vector means
 
     param returns: numpy array where rows are vector of asset returns
     param Sigmas: numpy array of covariance matrix
     param means: numpy array of mean vector; if None, assumes zero mean
-    """
+    """    
     if means is None:
         means = np.zeros_like(returns)
 
