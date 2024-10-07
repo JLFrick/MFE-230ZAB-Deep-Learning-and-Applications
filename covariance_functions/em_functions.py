@@ -9,8 +9,6 @@ import pandas as pd
 
 from .ewma_functions import iterated_ewma
 
-# from tqdm import trange
-
 # Mute specific warning
 warnings.filterwarnings("ignore", message="Solution may be inaccurate.*")
 
@@ -301,7 +299,6 @@ class _CovarianceCombination:
             try:
                 yield self._solve(time=time, problem=problem, **kwargs)
             except cvx.SolverError:
-                print(f"Solver did not converge at time {time}")
                 yield None
 
     def _solve(self, time, problem, **kwargs):
